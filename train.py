@@ -112,22 +112,47 @@ def take_step(task, model, optimizer, train_step, train_history_logger):
         train_step, logits, x_mask, y_mask, KL_amounts, 
         KL_names, total_KL, reconstruction_error, loss)
 
+def post_mortem_debug(enable_traceback=True):
+    """Call and enter pdb after an exception occurs globally.
+    """
+    import traceback; import pdb; import sys
+    def excepthook(exc_type, exc_value, exc_traceback):
+        if enable_traceback:
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
+        print("\nEntering post-mortem debugging...\n")
+        pdb.post_mortem(exc_traceback)
+    sys.excepthook = excepthook
 
 if __name__ == "__main__":
-    import torch
-    if torch.backends.mps.is_available():
+    import argparse; import torch
+    parser = argparse.ArgumentParser(description='Train a model for ARC-AGI tasks.')
+    task_names = [
+        "arc-agi_training", "arc-agi_evaluation", "arc-agi_test",
+        "arc-agi2_training", "arc-agi2_evaluation"]
+    parser.add_argument('-t', '--task', type=int, help='Task index: ' + ', '.join(f"{i}={task_names[i]}" for i in range(len(task_names))))
+    parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('-b', '--backend', type=str, default='cpu', choices=['mps', 'cpu'])
+    args = parser.parse_args()
+
+    if args.debug: post_mortem_debug()
+    if torch.backends.mps.is_available() and args.backend == 'mps':
+        print("[WARN] trains _slower_ on MPS, probs due to CPU fallback")
         import warnings; warnings.filterwarnings("ignore", message=".*_cummax_helper.*not currently supported.*")
         import os; assert os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1", (
             "PLS RUN WITH:\n$ PYTORCH_ENABLE_MPS_FALLBACK=1 python train.py"
             "\nOr suffer 'NotImplementedError: operator 'aten::_cummax_helper' (...) MPS. "
             "Enable CPU fallback for operations not supported on MPS'"
         )
-        torch.set_default_device("mps")
-        torch.set_default_dtype(torch.float32)  # for mps!
-        print(f"{torch.get_default_dtype()=}", f"{torch.get_default_device()=}", sep="\n")
+        torch.set_default_device("mps"); torch.set_default_dtype(torch.float32)  # req for mps!
+    elif args.backend == 'cpu':
+        torch.set_default_device("cpu")
+
+    print(f"{torch.get_default_dtype()=}", f"{torch.get_default_device()=}", sep="\n")
+        
 
     start_time = time.time()
-    print(split := ["training", "evaluation", "test"][0])
+    split = task_names[args.task]
+    print(f"Running task: {split}")
     tasks = preprocessing.preprocess_tasks(split, tqdm.trange(1))  # 400
     models = []; optimizers = []; train_history_loggers = []
     for task in tqdm.tqdm(tasks, desc=f"Tasks ({split=})"):
