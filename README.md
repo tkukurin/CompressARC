@@ -1,29 +1,20 @@
-<a href="https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html"><img src="teaser_figure_w_title.png"></a>
-This is the code base for the [ARC-AGI Without Pretraining](https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html) project. The Kaggle competition template version can be found [here](https://www.kaggle.com/code/iliao2345/arc-agi-without-pretraining/notebook?scriptVersionId=232760209).
+[ARC-AGI Without Pretraining](https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html).
+
+Kaggle competition template version [here](https://www.kaggle.com/code/iliao2345/arc-agi-without-pretraining/notebook?scriptVersionId=232760209).
+
 
 # Installation
 
-```
-> git clone https://github.com/iliao2345/CompressARC.git
-> cd CompressARC
-> python -m venv arc_agi_without_pretraining
-> source arc_agi_without_pretraining/bin/activate
-> pip install -r requirements.txt
+```bash
+uv venv
+source .venv/bin/activate.fish
+uv pip install -r requirements.txt
+
+# train on arc agi 2 train, task 0
+python main.py "arc-agi2_training:0"
 ```
 
-# How to solve an ARC-AGI task
-
-Run `analyze_example.py` to initialize a new model and train from scratch:
-```
-> python analyze_example.py
-Enter which split you want to find the task in (training, evaluation, test): <split>
-Enter which task you want to analyze (eg. 272f95fa): <task>
-Performing a training run on task <task> and placing the results in <task>/
-|100%|███████████████████████████████████████████████| 1500/1500 [12:22<00:00, 2.01it/s]
-done
-```
-
-The code will create a folder `<task>/` and put plots there after 1500 steps of training:
+If num plots is set:
 - solutions at every 50 steps
 - interpretable tensors of task representations
 - graph of each tensor's contribution to the KL over time
@@ -37,10 +28,9 @@ Most tasks may take up to 20 minutes to run, on one NVIDIA GeForce RTX 4070 GPU.
 A basic description of the code files in this repo:
 
 **For running via command line:**
-- `analyze_example.py`: Demonstrates how to solve one ARC-AGI problem using our method, with visualizations of learned task representations and plots of metrics.
+- `main.py`: Demonstrates how to solve one ARC-AGI problem using our method, with visualizations of learned task representations and plots of metrics.
 - `plot_problems.py`: Plots all of the ARC-AGI problems in a split.
 - `plot_accuracy.py`: Plots pass@n accuracies during/after a bulk training run with `train.py`.
-- `train.py`: Trains a model for every task in a split, plotting the accuracy. Contains code that computes the loss function. Defaults to the training split.
 - `parallel_train.py`: A multiprocessing program that schedules as many puzzles as possible in a split to be solved at the same time through `solve_task.py`, while maximizing the GPU memory usage. Defaults to the training split.
 - `scoring.py`: A script for scoring the results of `parallel_train.py`, which are better-formatted for Kaggle submissions.
 

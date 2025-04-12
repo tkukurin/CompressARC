@@ -42,12 +42,11 @@ def solve_task(task_name, split, time_limit, n_train_iterations, gpu_id, memory_
     """
 
     try:  # Error catching block that puts errors on the error_queue
+        if torch.cuda.is_available():
+            torch.set_default_device('cuda')
+            torch.cuda.set_device(gpu_id)
+            torch.cuda.reset_peak_memory_stats()  # Measure the memory used.
 
-        torch.set_default_device('cuda')
-        torch.cuda.set_device(gpu_id)
-        torch.cuda.reset_peak_memory_stats()  # Measure the memory used.
-
-        # Get the task
         with open(f'dataset/arc-agi_{split}_challenges.json', 'r') as f:
             problems = json.load(f)
         task = preprocessing.Task(task_name, problems[task_name], None)
@@ -72,16 +71,11 @@ def solve_task(task_name, split, time_limit, n_train_iterations, gpu_id, memory_
             attempt_1 = [list(row) for row in train_history_logger.solution_most_frequent[example_num]]
             attempt_2 = [list(row) for row in train_history_logger.solution_second_most_frequent[example_num]]
             example_list.append({'attempt_1': attempt_1, 'attempt_2': attempt_2})
-        del task
-        del model
-        del optimizer
-        del train_history_logger
-        torch.cuda.empty_cache()
+        del task, model, optimizer, train_history_logger
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            memory_dict[task_name] = torch.cuda.max_memory_allocated()
         gc.collect()
-
-        # Store the result
-        memory_dict[task_name] = torch.cuda.max_memory_allocated()
         solutions_dict[task_name] = example_list
-
     except Exception as e:  # If error, write to the error queue
         error_queue.put(traceback.format_exc())
