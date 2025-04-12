@@ -1,7 +1,9 @@
+
 import time
 
 import numpy as np
 import torch
+import tqdm
 
 import preprocessing
 import arc_compressor
@@ -66,10 +68,9 @@ def take_step(task, model, optimizer, train_step, train_history_logger):
             # If not, there is an extra term in the reconstruction error, corresponding to
             # the probability of reconstructing the correct grid size.
             grid_size_uncertain = not (task.in_out_same_size or task.all_out_same_size and in_out_mode==1 or task.all_in_same_size and in_out_mode==0)
-            if grid_size_uncertain:
-                coefficient = 0.01**max(0, 1-train_step/100)
-            else:
-                coefficient = 1
+            coefficient = (
+                0.01**max(0, 1-train_step/100)
+                if grid_size_uncertain else 1)
             logits_slice = logits[example_num,:,:,:,in_out_mode]  # color, x, y
             problem_slice = task.problem[example_num,:,:,in_out_mode]  # x, y
             output_shape = task.shapes[example_num][in_out_mode]
@@ -107,31 +108,29 @@ def take_step(task, model, optimizer, train_step, train_history_logger):
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
-
-    # Performance recording
-    train_history_logger.log(train_step,
-                             logits,
-                             x_mask,
-                             y_mask,
-                             KL_amounts,
-                             KL_names,
-                             total_KL,
-                             reconstruction_error,
-                             loss)
+    train_history_logger.log(
+        train_step, logits, x_mask, y_mask, KL_amounts, 
+        KL_names, total_KL, reconstruction_error, loss)
 
 
 if __name__ == "__main__":
+    import torch
+    if torch.backends.mps.is_available():
+        import warnings; warnings.filterwarnings("ignore", message=".*_cummax_helper.*not currently supported.*")
+        import os; assert os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1", (
+            "PLS RUN WITH:\n$ PYTORCH_ENABLE_MPS_FALLBACK=1 python train.py"
+            "\nOr suffer 'NotImplementedError: operator 'aten::_cummax_helper' (...) MPS. "
+            "Enable CPU fallback for operations not supported on MPS'"
+        )
+        torch.set_default_device("mps")
+        torch.set_default_dtype(torch.float32)  # for mps!
+        print(f"{torch.get_default_dtype()=}", f"{torch.get_default_device()=}", sep="\n")
+
     start_time = time.time()
-
-    task_nums = list(range(400))
-    split = "training"  # "training", "evaluation, or "test"
-
-    # Preprocess all tasks, make models, optimizers, and loggers. Make plots.
-    tasks = preprocessing.preprocess_tasks(split, task_nums)
-    models = []
-    optimizers = []
-    train_history_loggers = []
-    for task in tasks:
+    print(split := ["training", "evaluation", "test"][0])
+    tasks = preprocessing.preprocess_tasks(split, tqdm.trange(1))  # 400
+    models = []; optimizers = []; train_history_loggers = []
+    for task in tqdm.tqdm(tasks, desc=f"Tasks ({split=})"):
         model = arc_compressor.ARCCompressor(task)
         models.append(model)
         optimizer = torch.optim.Adam(model.weights_list, lr=0.01, betas=(0.5, 0.9))
@@ -143,15 +142,13 @@ if __name__ == "__main__":
     # Get the solution hashes so that we can check for correctness
     true_solution_hashes = [task.solution_hash for task in tasks]
 
-    # Train the models one by one
-    for i, (task, model, optimizer, train_history_logger) in enumerate(zip(tasks, models, optimizers, train_history_loggers)):
-        n_iterations = 2000
-        for train_step in range(n_iterations):
+    to_train = list(zip(tasks, models, optimizers, train_history_loggers))
+    for i, (task, model, optimizer, train_history_logger) in tqdm.tqdm(enumerate(to_train), desc="Training"):
+        for train_step in tqdm.trange(2000, desc="Training steps", leave=False):
             take_step(task, model, optimizer, train_step, train_history_logger)
         visualization.plot_solution(train_history_logger)
         solution_selection.save_predictions(train_history_loggers[:i+1])
         solution_selection.plot_accuracy(true_solution_hashes)
 
-    # Write down how long it all took
     with open('timing_result.txt', 'w') as f:
         f.write("Time elapsed in seconds: " + str(time.time() - start_time))
