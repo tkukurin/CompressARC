@@ -499,21 +499,29 @@ def direction_share(dims, x, weights, pre_norm=True, use_bias=False):
     Returns:
         MultiTensor[Tensor]: The output of the directional communication layer.
     """
-    if pre_norm:
-        z = normalize(x)
-    else:
-        z = x
-    n_directions = dims[3]+dims[4]
-    direction_dim = -2-n_directions
-    x = [torch.select(x, direction_dim, direction_ind) for direction_ind in range(8)]
-    for direction_ind1 in range(8):
-        for direction_ind2 in range(8):
-            coefficient = [1, 0.2, 0.4, 0.2, 1, 0.2, 0.4, 0.2][(direction_ind2-direction_ind1) % 8]
-            z_slice = torch.select(z, direction_dim, direction_ind2)
-            z_slice = affine(z_slice, weights[direction_ind1][direction_ind2], use_bias=use_bias)
-            x[direction_ind1] = x[direction_ind1] + coefficient*z_slice
-    x = torch.stack(x, dim=direction_dim)
-    return x
+    # Optionally normalize the input
+    z = normalize(x) if pre_norm else x
+
+    n_directions = dims[3] + dims[4]
+    direction_dim = -2 - n_directions
+
+    # Unbind x and z along the direction dimension to avoid repeated slicing.
+    x_list = list(torch.unbind(x, dim=direction_dim))
+    z_list = list(torch.unbind(z, dim=direction_dim))
+
+    # Precomputed coefficients for the directional shift.
+    coefficients = [1, 0.2, 0.4, 0.2, 1, 0.2, 0.4, 0.2]
+
+    # Loop over all pairs of directions.
+    for d1 in range(8):
+        for d2 in range(8):
+            # Determine the appropriate coefficient.
+            c = coefficients[(d2 - d1) % 8]
+            # Apply the affine transformation for this pair and accumulate.
+            x_list[d1] = x_list[d1] + c * affine(z_list[d2], weights[d1][d2], use_bias=use_bias)
+
+    # Reassemble the tensor along the original direction dimension.
+    return torch.stack(x_list, dim=direction_dim)
 
 @multitensor_systems.multify
 @add_residual

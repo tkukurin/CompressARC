@@ -1,13 +1,13 @@
 <a href="https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html"><img src="teaser_figure_w_title.png"></a>
-This is the code base for the [ARC-AGI Without Pretraining](https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html) project.
+This is the code base for the [ARC-AGI Without Pretraining](https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html) project. The Kaggle competition template version can be found [here](https://www.kaggle.com/code/iliao2345/arc-agi-without-pretraining/notebook?scriptVersionId=232760209).
 
 # Installation
 
 ```
 > git clone https://github.com/iliao2345/CompressARC.git
 > cd CompressARC
-> python -m venv arc_without_reasoning
-> source arc_without_reasoning/bin/activate
+> python -m venv arc_agi_without_pretraining
+> source arc_agi_without_pretraining/bin/activate
 > pip install -r requirements.txt
 ```
 
@@ -40,7 +40,9 @@ A basic description of the code files in this repo:
 - `analyze_example.py`: Demonstrates how to solve one ARC-AGI problem using our method, with visualizations of learned task representations and plots of metrics.
 - `plot_problems.py`: Plots all of the ARC-AGI problems in a split.
 - `plot_accuracy.py`: Plots pass@n accuracies during/after a bulk training run with `train.py`.
-- `train.py`: Trains a model for every task in a split, plotting the accuracy. Contains code that computes the loss function.
+- `train.py`: Trains a model for every task in a split, plotting the accuracy. Contains code that computes the loss function. Defaults to the training split.
+- `parallel_train.py`: A multiprocessing program that schedules as many puzzles as possible in a split to be solved at the same time through `solve_task.py`, while maximizing the GPU memory usage. Defaults to the training split.
+- `scoring.py`: A script for scoring the results of `parallel_train.py`, which are better-formatted for Kaggle submissions.
 
 **Functionality, not for running via command line:**
 - `arc_compressor.py`: The network architecture and forward pass.
@@ -50,6 +52,7 @@ A basic description of the code files in this repo:
 - `preprocessing.py`: Converting the dataset into a form usable by the repo.
 - `solution_selection.py`: Logging metrics and converting model outputs into solution predictions.
 - `visualization.py`: Drawing problems and solutions.
+- `solve_task.py`: A job script to solve one ARC-AGI problem on a specified GPU.
 
 **Some classes that the repo defines and uses:**
 - `MultiTensorSystem` (in `multitensor_systems.py`): A class that can spawn MultiTensors using stored dimensional information.
@@ -78,6 +81,6 @@ If you'd like to cite this blog post, use the following entry:
 	author = {Isaac Liao and Albert Gu},
 	title = {ARC-AGI Without Pretraining},
 	year = {2025},
-	url = {https://yourblog.com/post-url},
+	url = {https://iliao2345.github.io/blog_posts/arc_agi_without_pretraining/arc_agi_without_pretraining.html},
 }
 ```

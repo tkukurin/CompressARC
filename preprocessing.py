@@ -26,6 +26,8 @@ class Task:
         self._create_problem_tensor(problem)
 
         self.solution = self._create_solution_tensor(solution) if solution else None
+        if solution is None:
+            self.solution_hash = None
 
     def _collect_problem_shapes(self, problem):
         """
