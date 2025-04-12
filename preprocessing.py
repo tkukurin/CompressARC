@@ -26,8 +26,7 @@ class Task:
         self._create_problem_tensor(problem)
 
         self.solution = self._create_solution_tensor(solution) if solution else None
-        if solution is None:
-            self.solution_hash = None
+        if solution is None: self.solution_hash = None
 
     def _collect_problem_shapes(self, problem):
         """
@@ -128,7 +127,6 @@ class Task:
         """
         solution_tensor = np.zeros((self.n_test, self.n_colors + 1, self.n_x, self.n_y))
         solution_tuple = ()
-
         for example_num, grid in enumerate(solution):
             solution_tuple += (tuple(map(tuple, grid)),)
             grid_tensor = self._create_grid_tensor(grid)
@@ -145,7 +143,6 @@ class Task:
         Compute masks for activations and cross-entropies.
         """
         self.masks = np.zeros((self.n_examples, self.n_x, self.n_y, 2))
-
         for example_num, (in_shape, out_shape) in enumerate(self.shapes):
             for mode_num, shape in enumerate([in_shape, out_shape]):
                 if shape:
@@ -157,18 +154,10 @@ class Task:
 
 
 def preprocess_tasks(split, task_nums_or_task_names):
-    """
-    Preprocess tasks by loading problems and solutions.
-    """
-    with open(f'dataset/arc-agi_{split}_challenges.json', 'r') as f:
-        problems = json.load(f)
-
-    solutions = None if split == "test" else json.load(open(f'dataset/arc-agi_{split}_solutions.json'))
-    
+    with open(f'dataset/{split}_challenges.json', 'r') as f: problems = json.load(f)
+    solutions = None if split == "test" else json.load(open(f'dataset/{split}_solutions.json'))
     task_names = list(problems.keys())
-    
-    return [Task(task_name,
-                 problems[task_name],
-                 solutions.get(task_name) if solutions else None)
+    return [Task(task_name, problems[task_name], (solutions or {}).get(task_name))
             for task_name in task_names
-            if task_name in task_nums_or_task_names or task_names.index(task_name) in task_nums_or_task_names]
+            if task_name in task_nums_or_task_names
+            or task_names.index(task_name) in task_nums_or_task_names]
